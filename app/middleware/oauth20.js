@@ -1,6 +1,16 @@
 'use strict';
 
 const callbackPath = '/oauth/authorization_code_callback';
+const COOKIE_CONFIG = {
+  signed: true,
+};
+
+const COOKIE_SET_CONFIG = {
+  ...COOKIE_CONFIG,
+  maxAge: 1000 * 60 * 60 * 12, // 一天
+  ...COOKIE_CONFIG,
+  httpOnly: true,
+};
 
 module.exports = options => {
   const {
@@ -9,14 +19,16 @@ module.exports = options => {
     callbackUrl,
     clientSecret,
     userInfoUrl,
+    whiteUrls,
   } = options;
   return async function oauth20(ctx, next) {
     // 从cookie里面获取token
-    const token = ctx.cookies.get('oauth20_token', {
-      encrypt: true,
-      httpOnly: true,
-    });
+    const token = ctx.cookies.get('oauth20_token', COOKIE_CONFIG);
     const { path } = ctx;
+
+    if (whiteUrls.indexOf(path) > -1) {
+      return next();
+    }
 
     // 没有token并且地址不是回调地址,跳转过去获取token
     if (!token && path !== callbackPath) {
@@ -39,7 +51,7 @@ module.exports = options => {
  * @param callbackUrl 回调地址
  */
 function jumpToAuthorize(ctx, host, clientID, callbackUrl) {
-  const { url } = ctx.request
+  const { url } = ctx.request;
 
   let path = `${host}/oauth/authorize`;
   path += '?response_type=code';
@@ -105,17 +117,9 @@ async function changeTokenToId(ctx, clientID, clientSecret, host, callbackUrl, u
 
   const userInfoStr = userInfo.data.toString();
 
-  ctx.cookies.set('oauth20_token', accessTokenJson.access_token, {
-    maxAge: 1000 * 60 * 60 * 12, // 一天
-    encrypt: true,
-    httpOnly: true,
-  });
+  ctx.cookies.set('oauth20_token', accessTokenJson.access_token, COOKIE_SET_CONFIG);
 
-  ctx.cookies.set('user_info', encodeURIComponent(userInfoStr), {
-    maxAge: 1000 * 60 * 60 * 12, // 一天
-    encrypt: true,
-    httpOnly: true,
-  });
+  ctx.cookies.set('user_info', userInfoStr, COOKIE_SET_CONFIG);
 
   ctx.redirect(returnUri);
 }
