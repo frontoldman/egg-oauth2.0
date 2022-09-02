@@ -2,7 +2,7 @@
 
 const callbackPath = '/oauth/authorization_code_callback';
 
-module.exports = (options) => {
+module.exports = options => {
   const {
     host,
     clientID,
