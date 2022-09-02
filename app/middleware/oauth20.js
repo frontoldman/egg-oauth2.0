@@ -6,7 +6,6 @@ const COOKIE_CONFIG = {
 };
 
 const COOKIE_SET_CONFIG = {
-  ...COOKIE_CONFIG,
   maxAge: 1000 * 60 * 60 * 12, // 一天
   ...COOKIE_CONFIG,
   httpOnly: true,
@@ -119,7 +118,7 @@ async function changeTokenToId(ctx, clientID, clientSecret, host, callbackUrl, u
 
   ctx.cookies.set('oauth20_token', accessTokenJson.access_token, COOKIE_SET_CONFIG);
 
-  ctx.cookies.set('user_info', userInfoStr, COOKIE_SET_CONFIG);
+  ctx.cookies.set('user_info', encodeURIComponent(userInfoStr), COOKIE_SET_CONFIG);
 
   ctx.redirect(returnUri);
 }
