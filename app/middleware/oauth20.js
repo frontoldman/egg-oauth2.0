@@ -8,11 +8,15 @@ module.exports = options => {
     clientID,
     callbackUrl,
     clientSecret,
+    userInfoUrl,
   } = options;
   return async function oauth20(ctx, next) {
     // 从cookie里面获取token
-    const token = ctx.cookies.get('oauth20_token');
-    const { path } = ctx.req;
+    const token = ctx.cookies.get('oauth20_token', {
+      encrypt: true,
+      httpOnly: true,
+    });
+    const { path } = ctx;
 
     // 没有token并且地址不是回调地址,跳转过去获取token
     if (!token && path !== callbackPath) {
@@ -20,7 +24,7 @@ module.exports = options => {
     }
 
     if (path === callbackPath) {
-      return changeTokenToId(ctx, clientID, clientSecret, host, callbackUrl);
+      return changeTokenToId(ctx, clientID, clientSecret, host, callbackUrl, userInfoUrl);
     }
 
     next();
@@ -35,15 +39,15 @@ module.exports = options => {
  * @param callbackUrl 回调地址
  */
 function jumpToAuthorize(ctx, host, clientID, callbackUrl) {
-  const { returnUrl } = ctx.query;
+  const { url } = ctx.request
 
-  let path = `http://${host}/oauth/authorize`;
+  let path = `${host}/oauth/authorize`;
   path += '?response_type=code';
   path += '&scope=read';
   path += `&client_id=${clientID}`;
   path += '&state=UUID';
   path += `&redirect_uri=${encodeURIComponent(callbackUrl + callbackPath)}`;
-  path += `&return_uri=${encodeURIComponent(returnUrl)}`;
+  path += `&return_uri=${encodeURIComponent(url)}`;
 
   ctx.redirect(path);
 }
@@ -55,13 +59,14 @@ function jumpToAuthorize(ctx, host, clientID, callbackUrl) {
  * @param clientSecret key
  * @param host 目标host
  * @param callbackUrl 回调地址
+ * @param userInfoUrl 获取用户信息的接口
  * @returns {Promise<void>}
  */
-async function changeTokenToId(ctx, clientID, clientSecret, host, callbackUrl) {
+async function changeTokenToId(ctx, clientID, clientSecret, host, callbackUrl, userInfoUrl) {
   const { query, headers } = ctx;
   const { code, returnUri } = query;
 
-  headers.host = host;
+  headers.host = host.replace(/^http(S?):\/\//, '');
   headers['Content-type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
 
   const newQuery = {
@@ -74,7 +79,7 @@ async function changeTokenToId(ctx, clientID, clientSecret, host, callbackUrl) {
 
   const path = Object.keys(newQuery).map(key => `${key}=${newQuery[key]}`).join('&');
 
-  const accessResult = await ctx.curl(`http://${host}/oauth/token?${path}`, {
+  const accessResult = await ctx.curl(`${host}/oauth/token?${path}`, {
     headers,
     method: 'POST',
   });
@@ -93,7 +98,7 @@ async function changeTokenToId(ctx, clientID, clientSecret, host, callbackUrl) {
     return;
   }
 
-  const userInfo = await ctx.curl(`http://${host}/oauth/rs/getuserinfo?access_token=${accessTokenJson.access_token}`, {
+  const userInfo = await ctx.curl(`${host}${userInfoUrl}?access_token=${accessTokenJson.access_token}`, {
     headers,
     method: 'POST',
   });
@@ -102,14 +107,14 @@ async function changeTokenToId(ctx, clientID, clientSecret, host, callbackUrl) {
 
   ctx.cookies.set('oauth20_token', accessTokenJson.access_token, {
     maxAge: 1000 * 60 * 60 * 12, // 一天
-    encrypt: false,
-    httpOnly: false,
+    encrypt: true,
+    httpOnly: true,
   });
 
   ctx.cookies.set('user_info', encodeURIComponent(userInfoStr), {
     maxAge: 1000 * 60 * 60 * 12, // 一天
-    encrypt: false,
-    httpOnly: false,
+    encrypt: true,
+    httpOnly: true,
   });
 
   ctx.redirect(returnUri);
