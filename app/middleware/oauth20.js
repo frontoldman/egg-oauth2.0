@@ -2,7 +2,7 @@
 
 const callbackPath = '/oauth/authorization_code_callback';
 
-module.exports = (options, app) => {
+module.exports = (options) => {
   const {
     host,
     clientID,
@@ -100,7 +100,7 @@ async function changeTokenToId(ctx, clientID, clientSecret, host, callbackUrl) {
 
   const userInfoStr = userInfo.data.toString();
 
-  ctx.cookies.set('access_token', accessTokenJson.access_token, {
+  ctx.cookies.set('oauth20_token', accessTokenJson.access_token, {
     maxAge: 1000 * 60 * 60 * 12, // 一天
     encrypt: false,
     httpOnly: false,
