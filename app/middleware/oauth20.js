@@ -26,7 +26,7 @@ module.exports = options => {
     const { path } = ctx;
 
     if (whiteUrls.indexOf(path) > -1) {
-      return next();
+      return await next();
     }
 
     // 没有token并且地址不是回调地址,跳转过去获取token
@@ -38,7 +38,7 @@ module.exports = options => {
       return changeTokenToId(ctx, clientID, clientSecret, host, callbackUrl, userInfoUrl);
     }
 
-    next();
+    await next();
   };
 };
 
